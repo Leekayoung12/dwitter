@@ -1,32 +1,73 @@
-import { db } from '../db/database.js'
+import SQ from 'sequelize'
+import { sequelize } from '../db/database.js'
+import { User } from './auth.js'
 
-// 단, 트윗은 최근글이 제일 상단으로 올라오도록 !!
+const DataTypes = SQ.DataTypes
+const Sequelize = SQ.Sequelize
 
-const SELECT_JOIN = 'SELECT tw.id, tw.text, tw.createdAt, tw.userId, us.username, us.name, us.email, us.url from tweets as tw JOIN users as us ON tw.userId = us.id'
+const Tweet = sequelize.define(
+    'tweet',
+    {
+        id: {
+            type: DataTypes.INTEGER,
+            autoIncrement: true,
+            allowNull: false,
+            primaryKey: true
+        },
+        text: {
+            type: DataTypes.TEXT,
+            allowNull: false,
+        }
+})
+Tweet.belongsTo(User)
 
-const ORDER_DESC = 'ORDER BY tw.createdAt DESC'
+const INCLUDE_USER = {
+    attributes: [
+        'id', 'text', 'createdAt', 'userId', 
+        [Sequelize.col('user.name'), 'name'],
+        [Sequelize.col('user.username'), 'username'],
+        [Sequelize.col('user.url'), 'url']
+    ],
+    include: {
+        model: User,
+        attributes: [],
+    }
+} // [Sequelize...] 이렇게 써줘야 같은 레벨로 가져옴,하위가 아니라
+
+const ORDER_DESC = {
+    order: [['createdAt', 'DESC']]
+}
 
 export async function getAll(){ 
-    return db.execute(`${SELECT_JOIN} ${ORDER_DESC}`).then((result) => result[0])
+    return Tweet.findAll({ ...INCLUDE_USER, ...ORDER_DESC })
 } 
 
 export async function getAllByUsername(username){
-    return db.execute(`${SELECT_JOIN} where username=? ${ORDER_DESC}`,[username]).then((result) => result[0])
+    return Tweet.findAll({
+        ...INCLUDE_USER, ...ORDER_DESC, include: {
+            ...INCLUDE_USER.include, where: { username }
+        }
+    })
 }
 
 export async function getByID(id){ 
-    return db.execute(`${SELECT_JOIN} where tw.id=?`,[id]).then((result) => result[0][0])
+    return Tweet.findOne({ where: { id }, ...INCLUDE_USER })
 }
 
 export async function create(text, userId){
-
-    return db.execute('INSERT INTO tweets (text, createdAt, userId) VALUES (?, ?, ?)', [text, new Date(), userId]).then((result) => getByID(result[0].insertId))
+    return Tweet.create({ text, userId })
+    .then((data) => this.getByID(data.dataValues.id))
 }
 
 export async function update(id,text){
-    return db.execute('UPDATE tweets SET text=? where id=?',[text, id]).then(() => getByID(id))
+    return Tweet.findByPk(id, INCLUDE_USER).then((tweet) => {
+        tweet.text = text 
+        return tweet.save()
+    })
 }
 
 export async function remove(id){
-    return db.execute('DELETE FROM tweets where id=?',[id])
+    return Tweet.findByPk(id).then((tweet) => {
+        tweet.destroy()
+    })
 }
