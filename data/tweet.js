@@ -1,4 +1,5 @@
-import { db } from '../db/database.js'
+// import { db } from '../db/database.js'
+import MongoDb from 'mongodb'
 
 // 단, 트윗은 최근글이 제일 상단으로 올라오도록 !!
 

@@ -1,15 +1,26 @@
-import { db } from '../db/database.js'
+// import { db } from '../db/database.js'
+import MongoDb from 'mongodb'
+import { getUsers } from '../db/database.js'
+const ObjectID = MongoDb.ObjectId
+
+
+
 
 export async function createUser(user){
-    const { username, password, name, email, url} = user
-    return db.execute('INSERT INTO users (username, password, name, email, url) VALUES (?, ?, ?, ?, ?)', [username, password, name, email, url]).then((result) => result[0].insertId)
+    return getUsers().insertOne(user).then((result) => result.ops[0]._id.toString())
 }
 
 export async function findByUsername(username){
-    return db.execute('SELECT * from users where username = ?',[username]).then((result) => result[0][0])
+    return getUsers().find({ username }).next().then(maoOptionalUser)
    
 }
 
 export async function findById(id){
-    return db.execute('SELECT * from users where id = ?',[id]).then((result) => result[0][0])
+    return getUsers().find({ _id: new ObjectID(id)})
+    .next()
+    .then(maoOptionalUser)
+}
+
+function maoOptionalUser(user) {
+    return user ? { ...user, id:user._id.toString() }: user
 }
